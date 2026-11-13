@@ -3,5 +3,5 @@
 window.CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbzq3W6hGl5_WlZDiC-VnK7ZnxOcTiAFKtbKfnDq91ktH8-TmuGXQlLMQg8LnDr0h4ay/exec",
   APP_TITLE: "Link Hub",
-  VERSION: "1.0.2"
+  VERSION: "1.0.3"
 };
