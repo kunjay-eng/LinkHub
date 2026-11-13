@@ -4,17 +4,35 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ศูนย์รวมระบบงาน</title>
+<meta name="theme-color" content="#10151f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dash">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="config.js"></script>
 <style>
 :root{--bg:#10151f;--surface:#192131;--line:#27324a;--text:#e8edf6;--mute:#8d9ab3;--accent:#5cc8f2;--pin:#f2b441;--ok:#4cd68a;--bad:#f0605d}
 *{box-sizing:border-box}
+html,body{overscroll-behavior-y:none}
 body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.5 "IBM Plex Sans Thai",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 90px}
 .wrap{max-width:960px;margin:0 auto;padding:20px 16px}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
 h1{font-size:20px;font-weight:600;margin:0}
+.hr{display:flex;align-items:center;gap:8px}
 .ver{color:var(--mute);font-size:12px}
+.rf,.inst{border:1px solid var(--line);background:var(--surface);color:var(--mute);border-radius:8px;cursor:pointer;height:30px}
+.rf{width:30px;display:grid;place-items:center;padding:0}
+.inst{padding:0 12px;font-size:13px;color:var(--accent);border-color:var(--accent)}
+.inst[hidden]{display:none}
+.rf svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rf:hover{color:var(--text)}
+.rf.spin svg{animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
 input,select,button{font:inherit;color:inherit}
 .search{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .search:focus,.f input:focus,.f select:focus{outline:2px solid var(--accent);outline-offset:1px}
@@ -55,7 +73,9 @@ dialog::backdrop{background:#000a}
 </head>
 <body>
 <div class="wrap">
-  <header><h1 id="title"></h1><span class="ver" id="ver"></span></header>
+  <header><h1 id="title"></h1>
+    <div class="hr"><button class="inst" id="inst" hidden>ติดตั้ง</button><span class="ver" id="ver"></span>
+      <button class="rf" id="rf" aria-label="รีเฟรชข้อมูล"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-3-6.7L21 8M21 3v5h-5"/></svg></button></div></header>
   <input class="search" id="q" type="search" placeholder="ค้นหาระบบงาน…" autocomplete="off">
   <div class="chips" id="chips"></div>
   <div id="list"></div>
@@ -92,12 +112,16 @@ const SAMPLE = [
  {id:"a4",title:"คำนวณค่าน้ำ",subtitle:"",url:"https://example.com",icon:"💧",category:"บริหาร"},
  {id:"a5",title:"ขอใบอนุญาตประกอบการ",subtitle:"",url:"https://example.com",icon:"📁",category:"บริหาร"}];
 
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
+function toast(m,ms=2200){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("show"),ms)}
 
 // ---------- API ----------
 async function load(){
   if (DEMO) { items = JSON.parse(localStorage.getItem("demo") || "null") || SAMPLE; }
-  else { const r = await fetch(C.API_URL + "?action=list"); items = (await r.json()).data || []; }
+  else {
+    try { const r = await fetch(C.API_URL + "?action=list"); items = (await r.json()).data || [];
+      localStorage.setItem("cache", JSON.stringify(items)); }
+    catch (e) { items = JSON.parse(localStorage.getItem("cache") || "[]"); toast("ออฟไลน์ แสดงข้อมูลล่าสุดที่เก็บไว้"); }
+  }
   render(); checkStatus();
 }
 async function call(action, item, id){
@@ -173,6 +197,34 @@ $("#form").onsubmit = async e => {
 $("#del").onclick = async () => {
   if (!confirm("ลบ “"+editing.title+"” ?")) return;
   if (await call("delete", null, editing.id)) { $("#dlg").close(); toast("ลบแล้ว"); render(); }
+};
+
+// ---------- ปุ่มรีเฟรช (ไม่รีเฟรชหน้าเอง ต้องกดเท่านั้น) ----------
+let reloadOnUpdate = false;
+const reg = "serviceWorker" in navigator ? navigator.serviceWorker.register("sw.js").catch(()=>null) : Promise.resolve(null);
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (reloadOnUpdate) location.reload(); });
+$("#rf").onclick = async () => {
+  const b = $("#rf"); b.classList.add("spin");
+  try {
+    reloadOnUpdate = true; setTimeout(() => reloadOnUpdate = false, 4000);
+    await load();
+    const r = await reg; if (r) await r.update();
+    toast("อัปเดตข้อมูลแล้ว");
+  } catch (e) { toast("รีเฟรชไม่สำเร็จ"); }
+  b.classList.remove("spin");
+};
+
+// ---------- ติดตั้งไอคอนลงหน้าจอหลัก ----------
+let deferred = null;
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if (!standalone && isIOS) $("#inst").hidden = false;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); deferred = e; if (!standalone) $("#inst").hidden = false; });
+addEventListener("appinstalled", () => { $("#inst").hidden = true; toast("ติดตั้งแล้ว"); });
+$("#inst").onclick = async () => {
+  if (deferred) { deferred.prompt(); await deferred.userChoice; deferred = null; $("#inst").hidden = true; }
+  else toast("แตะปุ่มแชร์ แล้วเลือก “เพิ่มไปยังหน้าจอโฮม”", 5000);
 };
 load();
 </script>
