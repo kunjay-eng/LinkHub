@@ -1,5 +1,5 @@
-// Service worker v1.0.2 — ไม่รีเฟรชหน้าเอง (ผู้ใช้กดปุ่มรีเฟรชเอง)
-const CACHE = "linkhub-1.0.2";
+// Service worker v1.0.3 — ไม่รีเฟรชหน้าเอง (ผู้ใช้กดปุ่มรีเฟรชเอง)
+const CACHE = "linkhub-1.0.3";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
